@@ -25,9 +25,14 @@ Use Markdown for all outputs. Use bold headings and tables where appropriate.
 `;
 
 export const getGeminiResponse = async (history: { role: string; parts: { text: string }[] }[]) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const apiKey = process.env.API_KEY || localStorage.getItem('TAO_STRATEGY_API_KEY') || '';
   
-  // We use the last message as the prompt and the rest as context
+  if (!apiKey) {
+    throw new Error("Missing API Key. Please configure it in the [GUIDE] menu.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: history,
