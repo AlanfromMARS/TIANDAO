@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { SimulationPhase, Message } from './types';
+import { SimulationPhase, Message, AIModel } from './types';
 import { getGeminiResponse } from './geminiService';
+import { getDeepSeekResponse } from './deepseekService';
 import HudHeader from './components/HudHeader';
 import ChatMessage from './components/ChatMessage';
+import TutorialModal from './components/TutorialModal';
 
 const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -14,6 +16,8 @@ const App: React.FC = () => {
   ]);
   const [phase, setPhase] = useState<SimulationPhase>(SimulationPhase.DIAGNOSIS);
   const [ratio, setRatio] = useState<string>('N/A');
+  const [activeModel, setActiveModel] = useState<AIModel>(AIModel.GEMINI);
+  const [isTutorialOpen, setIsTutorialOpen] = useState<boolean>(false);
   const [input, setInput] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -34,24 +38,31 @@ const App: React.FC = () => {
     setLoading(true);
 
     try {
-      const history = [...messages, { role: 'user', content: userMsg }].map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
+      let response = '';
+      
+      if (activeModel === AIModel.GEMINI) {
+        const history = [...messages, { role: 'user', content: userMsg }].map(m => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        }));
+        response = await getGeminiResponse(history);
+      } else {
+        const history = [...messages, { role: 'user', content: userMsg }].map(m => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content
+        }));
+        response = await getDeepSeekResponse(history);
+      }
 
-      const response = await getGeminiResponse(history);
       if (response) {
         setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-        
-        // Dynamic phase advancement logic based on response content or system state
-        // For simplicity, we cycle through phases as the conversation progresses
         updateSimulationState(response);
       }
-    } catch (error) {
-      console.error('Gemini Error:', error);
+    } catch (error: any) {
+      console.error('API Error:', error);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: " >_ [ERROR] | 核心引擎连接中断。请检查您的灵气（网络）连接并重试。" 
+        content: ` >_ [ERROR] | 引擎 [${activeModel}] 通讯中断: ${error.message || '未知异常'}。请点击右上角查看 [部署教程] 确认 API 配置。` 
       }]);
     } finally {
       setLoading(false);
@@ -59,7 +70,6 @@ const App: React.FC = () => {
   };
 
   const updateSimulationState = (content: string) => {
-    // Basic heuristic to detect phase shift based on content keywords from the prompt rules
     if (content.includes('PHASE_2') || content.includes('人之道') || content.includes('Conflict')) {
       setPhase(SimulationPhase.ANALYSIS);
     } else if (content.includes('PHASE_3') || content.includes('Fusion') || content.includes('Optimal_Ratio')) {
@@ -73,10 +83,20 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleModel = () => {
+    setActiveModel(prev => prev === AIModel.GEMINI ? AIModel.DEEPSEEK : AIModel.GEMINI);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8 bg-[#0a0c10]">
       <div className="w-full max-w-4xl h-[90vh] flex flex-col">
-        <HudHeader phase={phase} ratio={ratio} />
+        <HudHeader 
+          phase={phase} 
+          ratio={ratio} 
+          activeModel={activeModel} 
+          onToggleModel={toggleModel} 
+          onOpenTutorial={() => setIsTutorialOpen(true)}
+        />
 
         <div 
           ref={scrollRef}
@@ -88,33 +108,33 @@ const App: React.FC = () => {
           {loading && (
             <div className="flex justify-start items-center gap-3 text-teal-500/50 italic text-sm font-mono animate-pulse">
               <span>☯️</span>
-              <span>推演天机中 (Reasoning Dialectical Flow...)</span>
+              <span>推演中 ({activeModel} Reasoning...)</span>
             </div>
           )}
         </div>
 
         <form onSubmit={handleSubmit} className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-teal-500/20 to-emerald-500/20 rounded-lg blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-          <div className="relative flex gap-2 p-2 bg-slate-900 border border-teal-900/50 rounded-lg">
+          <div className="relative flex gap-2 p-2 bg-slate-900/90 border border-teal-900/50 rounded-lg shadow-2xl">
             <input 
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}
-              placeholder="输入您的指令或数据以继续推演..."
-              className="flex-1 bg-transparent border-none outline-none text-teal-100 placeholder-teal-900 px-4 py-3 font-mono"
+              placeholder={`使用 ${activeModel} 引擎推演您的下一步策略...`}
+              className="flex-1 bg-transparent border-none outline-none text-teal-100 placeholder-teal-900/60 px-4 py-3 font-mono"
             />
             <button 
               type="submit"
               disabled={loading || !input.trim()}
-              className="bg-teal-600/20 hover:bg-teal-600/40 border border-teal-500/30 text-teal-400 font-bold px-6 py-2 rounded-md transition-all flex items-center gap-2"
+              className="bg-teal-600/20 hover:bg-teal-600/40 border border-teal-500/30 text-teal-400 font-bold px-6 py-2 rounded-md transition-all flex items-center gap-2 group"
             >
               {loading ? (
                 <div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <>
-                  <span>EXE</span>
-                  <span className="text-[10px]">⏎</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">EXE</span>
+                  <span className="text-[10px] opacity-50 font-normal">⏎</span>
                 </>
               )}
             </button>
@@ -122,9 +142,11 @@ const App: React.FC = () => {
         </form>
         
         <div className="mt-4 text-[10px] text-center text-teal-900/60 font-mono tracking-widest uppercase">
-          Grand Strategist of Tao - Neural Link Active | Anti-Fragility Checked
+          Grand Strategist Engine: {activeModel} | Neural Link Synchronized | v2.0
         </div>
       </div>
+
+      <TutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
     </div>
   );
 };

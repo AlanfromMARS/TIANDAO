@@ -1,13 +1,16 @@
 
 import React from 'react';
-import { SimulationPhase } from '../types';
+import { SimulationPhase, AIModel } from '../types';
 
 interface HudHeaderProps {
   phase: SimulationPhase;
   ratio: string;
+  activeModel: AIModel;
+  onToggleModel: () => void;
+  onOpenTutorial: () => void;
 }
 
-const HudHeader: React.FC<HudHeaderProps> = ({ phase, ratio }) => {
+const HudHeader: React.FC<HudHeaderProps> = ({ phase, ratio, activeModel, onToggleModel, onOpenTutorial }) => {
   return (
     <div className="w-full mb-6 select-none">
       <div className="flex flex-col border border-teal-500/30 bg-teal-900/10 p-4 rounded-lg hud-glow overflow-hidden relative">
@@ -17,9 +20,14 @@ const HudHeader: React.FC<HudHeaderProps> = ({ phase, ratio }) => {
             <span className="animate-pulse">●</span>
             <span>☯️ 人生战略推演 v2.0</span>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+             <button 
+               onClick={onOpenTutorial}
+               className="hover:text-white transition-colors border border-teal-500/20 px-2 py-0.5 rounded bg-teal-500/5"
+             >
+               [部署教程/GUIDE]
+             </button>
              <span>[Dialectical-Flow]</span>
-             <span className="text-white/50">{new Date().toLocaleTimeString()}</span>
           </div>
         </div>
         
@@ -32,8 +40,18 @@ const HudHeader: React.FC<HudHeaderProps> = ({ phase, ratio }) => {
             <span className="text-teal-500/60 mr-2">⚖️ 模式:</span>
             <span className="text-teal-300">[{ratio || 'WAITING'}]</span>
           </div>
-          <div className="flex-1 text-right text-teal-500/40 text-xs">
-            SYS_STATUS: OPTIMAL_SYNC_ACTIVE
+          <div className="flex items-center ml-auto">
+            <span className="text-teal-500/60 mr-2">⚙️ 引擎:</span>
+            <button 
+              onClick={onToggleModel}
+              className={`px-3 py-0.5 rounded border transition-all font-bold ${
+                activeModel === AIModel.GEMINI 
+                ? 'border-teal-500 bg-teal-500/20 text-teal-200' 
+                : 'border-blue-500 bg-blue-500/20 text-blue-200'
+              }`}
+            >
+              {activeModel}
+            </button>
           </div>
         </div>
       </div>

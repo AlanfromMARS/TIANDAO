@@ -8,6 +8,11 @@ export enum SimulationPhase {
   CLOSED = 'CLOSED'
 }
 
+export enum AIModel {
+  GEMINI = 'GEMINI',
+  DEEPSEEK = 'DEEPSEEK'
+}
+
 export interface UserProfile {
   age?: string;
   career?: string;
@@ -26,4 +31,5 @@ export interface GlobalState {
   currentAssets: string | null;
   strategyMode: string | null;
   phase: SimulationPhase;
+  activeModel: AIModel;
 }
